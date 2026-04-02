@@ -31,15 +31,22 @@
   select { width: 100%; padding: 10px 12px; border: 1.5px solid #d0d7e8; border-radius: 10px; font-size: 14px; background: #f8f9ff; margin-bottom: 10px; appearance: none; }
 
   /* 문제 */
-  .question-box { font-size: 15px; line-height: 1.8; margin-bottom: 14px; font-weight: 600; word-break: keep-all; white-space: pre-wrap; }
+  .question-box { font-size: 16px; line-height: 1.6; margin-bottom: 14px; font-weight: 700; word-break: keep-all; white-space: pre-wrap; color: #111; }
+  .q-header { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+  .q-badge { background: #eef2ff; color: #4f46e5; font-size: 11px; font-weight: 800; padding: 2px 8px; border-radius: 4px; border: 1px solid #e0e7ff; }
+  
   .options { list-style: none; }
-  .options li { padding: 11px 14px; border: 1.5px solid #e0e5f0; border-radius: 10px; margin-bottom: 8px; font-size: 14px; cursor: pointer; transition: all 0.15s; line-height: 1.7; word-break: keep-all; white-space: pre-wrap; }
-  .options li:hover { border-color: #3a5fc8; background: #f0f4ff; }
-  .options li.correct { border-color: #27ae60; background: #eaffef; color: #1a7a40; font-weight: 700; }
-  .options li.wrong { border-color: #e74c3c; background: #fff0f0; color: #c0392b; }
+  .options li { padding: 12px 16px; border: 1.5px solid #eef2ff; border-radius: 12px; margin-bottom: 10px; font-size: 14px; cursor: pointer; transition: all 0.2s; line-height: 1.6; word-break: keep-all; white-space: pre-wrap; background: #fff; }
+  .options li:hover { border-color: #3a5fc8; background: #f8faff; }
+  .options li.correct { border-color: #10b981; background: #ecfdf5; color: #065f46; font-weight: 700; }
+  .options li.wrong { border-color: #ef4444; background: #fef2f2; color: #991b1b; }
   .options li.disabled { pointer-events: none; }
 
-  .explanation { background: #f0f4ff; border-left: 4px solid #3a5fc8; border-radius: 8px; padding: 14px; font-size: 13px; line-height: 1.8; margin-top: 12px; display: none; word-break: keep-all; white-space: pre-wrap; }
+  .result-bar { display: none; align-items: center; gap: 12px; margin-top: 16px; padding-top: 12px; border-top: 1px solid #f0f0f0; }
+  .correct-badge { background: #ecfdf5; color: #059669; font-size: 13px; font-weight: 800; padding: 4px 10px; border-radius: 6px; border: 1px solid #d1fae5; }
+  .toggle-exp { font-size: 13px; font-weight: 700; color: #3b82f6; cursor: pointer; display: flex; align-items: center; gap: 2px; }
+
+  .explanation { background: #f8faff; border-radius: 12px; padding: 16px; font-size: 14px; line-height: 1.7; margin-top: 12px; display: none; word-break: keep-all; white-space: pre-wrap; color: #444; border: 1px solid #eef2ff; }
 
   .nav-btns { display: flex; gap: 10px; margin-top: 14px; }
   .btn { flex: 1; padding: 12px; border: none; border-radius: 10px; font-size: 14px; font-weight: 700; cursor: pointer; transition: opacity 0.2s; }
@@ -121,8 +128,15 @@
     <div class="progress-text" id="progressText"></div>
     <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
     <div class="card">
+      <div class="q-header" id="qHeader"></div>
       <div class="question-box" id="questionBox"></div>
       <ul class="options" id="optionsList"></ul>
+      
+      <div class="result-bar" id="resultBar">
+        <div class="correct-badge" id="correctBadge">정답 ①</div>
+        <div class="toggle-exp" onclick="toggleExp()">해설보기 <span id="toggleArrow">▾</span></div>
+      </div>
+      
       <div class="explanation" id="explanationBox"></div>
     </div>
     <div class="nav-btns">
@@ -412,14 +426,27 @@ function loadQuiz() {
 function renderQuestion() {
   const q = currentQuestions[currentIdx];
   const total = currentQuestions.length;
+  const year = questionDB[currentKey].year;
+  const subject = questionDB[currentKey].subject;
+
   document.getElementById('progressText').textContent = `${currentIdx + 1} / ${total} 문제`;
   document.getElementById('progressFill').style.width = `${((currentIdx + 1) / total) * 100}%`;
-  renderText(document.getElementById('questionBox'), `Q${currentIdx + 1}. ${q.question}`);
+  
+  // 헤더 렌더링
+  const header = document.getElementById('qHeader');
+  header.innerHTML = `
+    <span class="q-badge">${(currentIdx + 1).toString().padStart(2, '0')}번</span>
+    <span class="q-badge" style="background:#fff; color:#666;">${subject}</span>
+  `;
+
+  renderText(document.getElementById('questionBox'), q.question);
   document.getElementById('nextBtn').textContent = currentIdx === total - 1 ? '결과 보기' : '다음';
 
   const expBox = document.getElementById('explanationBox');
+  const resBar = document.getElementById('resultBar');
   expBox.style.display = 'none';
-  expBox.innerHTML = '';
+  resBar.style.display = 'none';
+  document.getElementById('toggleArrow').textContent = '▾';
 
   const ul = document.getElementById('optionsList');
   ul.innerHTML = '';
@@ -427,12 +454,13 @@ function renderQuestion() {
     const li = document.createElement('li');
     renderText(li, opt);
     li.onclick = () => selectAnswer(i + 1, li, q);
+    
+    // 이미 푼 경우 복구
     if (answered[currentIdx] !== null) {
       li.classList.add('disabled');
       if (i + 1 === q.answer) li.classList.add('correct');
       if (i + 1 === answered[currentIdx] && answered[currentIdx] !== q.answer) li.classList.add('wrong');
-      renderText(expBox, q.explanation || '');
-      expBox.style.display = q.explanation ? 'block' : 'none';
+      showResultBar(q);
     }
     ul.appendChild(li);
   });
@@ -447,8 +475,8 @@ function selectAnswer(selected, li, q) {
     if (i + 1 === q.answer) el.classList.add('correct');
     if (i + 1 === selected && selected !== q.answer) el.classList.add('wrong');
   });
-  const expBox = document.getElementById('explanationBox');
-  if (q.explanation) { renderText(expBox, q.explanation); expBox.style.display = 'block'; }
+  
+  showResultBar(q);
 
   // 오답 저장
   if (selected !== q.answer) {
@@ -465,10 +493,36 @@ function selectAnswer(selected, li, q) {
       date: new Date().toLocaleDateString('ko-KR')
     };
   } else {
-    // 맞혔으면 오답노트에서 제거
     delete wrongNotes[`${currentKey}_${currentIdx}`];
   }
   saveToStorage();
+}
+
+function showResultBar(q) {
+  const resBar = document.getElementById('resultBar');
+  const badge = document.getElementById('correctBadge');
+  resBar.style.display = 'flex';
+  badge.textContent = `정답 ${convertToCircle(q.answer)}`;
+  
+  const expBox = document.getElementById('explanationBox');
+  renderText(expBox, q.explanation || '해설이 없습니다.');
+}
+
+function convertToCircle(num) {
+  const circles = ['①', '②', '③', '④', '⑤'];
+  return circles[num - 1] || num;
+}
+
+function toggleExp() {
+  const expBox = document.getElementById('explanationBox');
+  const arrow = document.getElementById('toggleArrow');
+  if (expBox.style.display === 'none') {
+    expBox.style.display = 'block';
+    arrow.textContent = '▴';
+  } else {
+    expBox.style.display = 'none';
+    arrow.textContent = '▾';
+  }
 }
 
 function prevQuestion() {
