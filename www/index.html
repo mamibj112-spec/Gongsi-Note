@@ -735,7 +735,10 @@ function handlePDFUpload(event) {
         })
       });
 
-      if (!res.ok) throw new Error('AI 분석 실패');
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error('AI 분석 실패: ' + (errData.error || res.status));
+      }
 
       const data = await res.json();
       if (!data.questions || data.questions.length === 0) {
