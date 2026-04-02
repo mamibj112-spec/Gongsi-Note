@@ -250,6 +250,25 @@ let answered = [];
 let reviewQueue = [];
 let reviewIdx = 0;
 
+async function loadBundledData() {
+  const files = ['data/2026_소방_행정법총론.json'];
+  for (const file of files) {
+    try {
+      const res = await fetch(file);
+      if (!res.ok) continue;
+      const data = await res.json();
+      const key = `${data.year}_${data.subject}`;
+      if (!questionDB[key]) {
+        questionDB[key] = data;
+      }
+    } catch(e) {}
+  }
+  saveToStorage();
+  populateYearSelect();
+  populateWrongFilter();
+  renderLoadedFiles();
+}
+
 function init() {
   loadFromStorage();
   updateStreak();
@@ -613,6 +632,7 @@ function switchTab(tab) {
 }
 
 init();
+loadBundledData();
 </script>
 </body>
 </html>
