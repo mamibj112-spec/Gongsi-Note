@@ -1,0 +1,6 @@
+name = "gongsi-note-worker"
+main = "cloudflare-worker.js"
+compatibility_date = "2024-01-01"
+
+[vars]
+# GEMINI_API_KEY = "여기에는 키를 직접 넣지 마세요 (보안상 npx wrangler secret put GEMINI_API_KEY 권장)"

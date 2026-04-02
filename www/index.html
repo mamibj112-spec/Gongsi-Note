@@ -193,6 +193,20 @@
     </label>
     <input type="file" id="jsonFileInput" accept=".json" multiple onchange="loadJSONFiles(event)">
     <div class="loaded-files" id="loadedFiles"></div>
+    
+    <hr style="margin: 20px 0; border: 0; border-top: 1px solid #eee;">
+    
+    <div class="card-title">AI PDF 문제 생성 ✨</div>
+    <label class="upload-area" for="pdfFileInput" style="border-color: #f1c40f; background: #fffdf0;">
+      <div class="upload-icon">📄</div>
+      <div>PDF 파일을 직접 분석해서 추가하기</div>
+      <div class="json-hint">AI(Gemini)가 PDF를 읽고 퀴즈를 생성합니다.</div>
+    </label>
+    <input type="file" id="pdfFileInput" accept=".pdf" onchange="handlePDFUpload(event)">
+    <div id="pdfLoading" style="display:none; text-align:center; padding:10px;">
+      <div style="font-size:12px; color:#3a5fc8; margin-bottom:5px;">AI가 분석 중입니다... (약 10~20초 소요)</div>
+      <progress style="width:100%;"></progress>
+    </div>
   </div>
 
   <div class="card">
@@ -641,6 +655,56 @@ function switchTab(tab) {
   document.querySelectorAll('.tab')[idx].classList.add('active');
   if (tab === 'wrong') renderWrongNote();
   if (tab === 'stats') renderStats();
+}
+
+// ===================== AI PDF 처리 =====================
+const WORKER_URL = 'https://gongsi-note-worker.mamibj7.workers.dev'; // 배포 후 여기에 주소를 넣으세요.
+
+function handlePDFUpload(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  if (!confirm(`'${file.name}' 파일을 AI에게 보내 분석할까요?`)) return;
+
+  const reader = new FileReader();
+  reader.onload = async function(e) {
+    const base64 = e.target.result.split(',')[1];
+    document.getElementById('pdfLoading').style.display = 'block';
+
+    try {
+      const res = await fetch(WORKER_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          pdfData: base64,
+          pdfName: file.name
+        })
+      });
+
+      if (!res.ok) throw new Error('AI 분석 실패');
+
+      const data = await res.json();
+      if (!data.questions || data.questions.length === 0) {
+        throw new Error('문제를 추출하지 못했습니다.');
+      }
+
+      const key = `${data.year}_${data.subject}`;
+      questionDB[key] = data;
+      saveToStorage();
+      
+      populateYearSelect();
+      populateWrongFilter();
+      renderLoadedFiles();
+      
+      alert(`성공! '${data.year} ${data.subject}' 과목이 추가되었습니다.`);
+    } catch (err) {
+      alert('오류: ' + err.message);
+    } finally {
+      document.getElementById('pdfLoading').style.display = 'none';
+      event.target.value = '';
+    }
+  };
+  reader.readAsDataURL(file);
 }
 
 init();

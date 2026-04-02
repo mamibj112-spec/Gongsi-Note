@@ -1,0 +1,6 @@
+node_modules/
+android/
+.claude/
+json_output/
+pdf/
+package-lock.json
