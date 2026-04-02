@@ -31,15 +31,15 @@
   select { width: 100%; padding: 10px 12px; border: 1.5px solid #d0d7e8; border-radius: 10px; font-size: 14px; background: #f8f9ff; margin-bottom: 10px; appearance: none; }
 
   /* 문제 */
-  .question-box { font-size: 15px; line-height: 1.7; margin-bottom: 14px; font-weight: 600; }
+  .question-box { font-size: 15px; line-height: 1.8; margin-bottom: 14px; font-weight: 600; word-break: keep-all; white-space: pre-wrap; }
   .options { list-style: none; }
-  .options li { padding: 11px 14px; border: 1.5px solid #e0e5f0; border-radius: 10px; margin-bottom: 8px; font-size: 14px; cursor: pointer; transition: all 0.15s; }
+  .options li { padding: 11px 14px; border: 1.5px solid #e0e5f0; border-radius: 10px; margin-bottom: 8px; font-size: 14px; cursor: pointer; transition: all 0.15s; line-height: 1.7; word-break: keep-all; white-space: pre-wrap; }
   .options li:hover { border-color: #3a5fc8; background: #f0f4ff; }
   .options li.correct { border-color: #27ae60; background: #eaffef; color: #1a7a40; font-weight: 700; }
   .options li.wrong { border-color: #e74c3c; background: #fff0f0; color: #c0392b; }
   .options li.disabled { pointer-events: none; }
 
-  .explanation { background: #f0f4ff; border-left: 4px solid #3a5fc8; border-radius: 8px; padding: 12px; font-size: 13px; line-height: 1.6; margin-top: 12px; display: none; }
+  .explanation { background: #f0f4ff; border-left: 4px solid #3a5fc8; border-radius: 8px; padding: 14px; font-size: 13px; line-height: 1.8; margin-top: 12px; display: none; word-break: keep-all; white-space: pre-wrap; }
 
   .nav-btns { display: flex; gap: 10px; margin-top: 14px; }
   .btn { flex: 1; padding: 12px; border: none; border-radius: 10px; font-size: 14px; font-weight: 700; cursor: pointer; transition: opacity 0.2s; }
@@ -225,6 +225,18 @@
 </div>
 
 <script>
+// ===================== 텍스트 렌더링 =====================
+function renderText(el, text) {
+  if (!text) { el.innerHTML = ''; return; }
+  // \n → <br>, 공백 정리
+  el.innerHTML = text
+    .replace(/\r\n/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .split('\n')
+    .map(line => `<span>${line.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</span>`)
+    .join('<br>');
+}
+
 // ===================== 데이터 저장소 =====================
 let questionDB = {}; // { "2024_국어": { year, subject, questions } }
 let wrongNotes = {}; // { "2024_국어_1": { year, subject, qIndex, question, options, answer, explanation, myAnswer } }
@@ -388,24 +400,24 @@ function renderQuestion() {
   const total = currentQuestions.length;
   document.getElementById('progressText').textContent = `${currentIdx + 1} / ${total} 문제`;
   document.getElementById('progressFill').style.width = `${((currentIdx + 1) / total) * 100}%`;
-  document.getElementById('questionBox').textContent = `Q${currentIdx + 1}. ${q.question}`;
+  renderText(document.getElementById('questionBox'), `Q${currentIdx + 1}. ${q.question}`);
   document.getElementById('nextBtn').textContent = currentIdx === total - 1 ? '결과 보기' : '다음';
 
   const expBox = document.getElementById('explanationBox');
   expBox.style.display = 'none';
-  expBox.textContent = '';
+  expBox.innerHTML = '';
 
   const ul = document.getElementById('optionsList');
   ul.innerHTML = '';
   q.options.forEach((opt, i) => {
     const li = document.createElement('li');
-    li.textContent = opt;
+    renderText(li, opt);
     li.onclick = () => selectAnswer(i + 1, li, q);
     if (answered[currentIdx] !== null) {
       li.classList.add('disabled');
       if (i + 1 === q.answer) li.classList.add('correct');
       if (i + 1 === answered[currentIdx] && answered[currentIdx] !== q.answer) li.classList.add('wrong');
-      expBox.textContent = q.explanation || '';
+      renderText(expBox, q.explanation || '');
       expBox.style.display = q.explanation ? 'block' : 'none';
     }
     ul.appendChild(li);
@@ -422,7 +434,7 @@ function selectAnswer(selected, li, q) {
     if (i + 1 === selected && selected !== q.answer) el.classList.add('wrong');
   });
   const expBox = document.getElementById('explanationBox');
-  if (q.explanation) { expBox.textContent = q.explanation; expBox.style.display = 'block'; }
+  if (q.explanation) { renderText(expBox, q.explanation); expBox.style.display = 'block'; }
 
   // 오답 저장
   if (selected !== q.answer) {
@@ -541,7 +553,7 @@ function startReview(key) {
 function renderReview() {
   const w = reviewQueue[reviewIdx];
   document.getElementById('reviewCount').textContent = `${reviewIdx + 1} / ${reviewQueue.length}`;
-  document.getElementById('reviewQuestionBox').textContent = `Q. ${w.question}`;
+  renderText(document.getElementById('reviewQuestionBox'), `Q. ${w.question}`);
   document.getElementById('reviewExplanationBox').style.display = 'none';
   document.getElementById('reviewNextBtn').textContent = reviewIdx === reviewQueue.length - 1 ? '완료' : '다음';
 
@@ -568,7 +580,7 @@ function selectReviewAnswer(selected, li, w) {
     saveToStorage();
   }
   const expBox = document.getElementById('reviewExplanationBox');
-  if (w.explanation) { expBox.textContent = w.explanation; expBox.style.display = 'block'; }
+  if (w.explanation) { renderText(expBox, w.explanation); expBox.style.display = 'block'; }
 }
 
 function reviewNext() {
