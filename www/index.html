@@ -4,6 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>공시노트</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script>pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';</script>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: 'Noto Sans KR', sans-serif; background: #f4f6fb; color: #222; max-width: 430px; margin: 0 auto; min-height: 100vh; }
@@ -698,6 +700,18 @@ document.addEventListener('drop', e => e.preventDefault());
 // ===================== AI PDF 처리 =====================
 const WORKER_URL = 'https://gongsi-note-worker.mamibj7.workers.dev'; // 배포 후 여기에 주소를 넣으세요.
 
+async function extractTextFromPDF(file) {
+  const arrayBuffer = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+  let text = '';
+  for (let i = 1; i <= pdf.numPages; i++) {
+    const page = await pdf.getPage(i);
+    const content = await page.getTextContent();
+    text += content.items.map(item => item.str).join(' ') + '\n';
+  }
+  return text;
+}
+
 function handlePDFUpload(event) {
   const files = Array.from(event.target.files);
   if (files.length === 0) return;
@@ -705,18 +719,12 @@ function handlePDFUpload(event) {
   const names = files.map(f => f.name).join(', ');
   if (!confirm(`'${names}' 파일을 AI에게 보내 분석할까요?`)) return;
 
-  const readFile = f => new Promise(resolve => {
-    const reader = new FileReader();
-    reader.onload = e => resolve(e.target.result.split(',')[1]);
-    reader.readAsDataURL(f);
-  });
-
   (async function() {
     document.getElementById('pdfLoading').style.display = 'block';
     try {
-      const base64s = await Promise.all(files.map(readFile));
-      const body = { pdfData: base64s[0], pdfName: files[0].name };
-      if (base64s[1]) { body.pdfData2 = base64s[1]; body.pdfName2 = files[1].name; }
+      const texts = await Promise.all(files.map(extractTextFromPDF));
+      const body = { pdfText: texts[0], pdfName: files[0].name };
+      if (texts[1]) { body.pdfText2 = texts[1]; body.pdfName2 = files[1].name; }
 
       const res = await fetch(WORKER_URL, {
         method: 'POST',

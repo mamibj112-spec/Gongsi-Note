@@ -83,12 +83,12 @@ export default {
     }
 
     try {
-      const { pdfData, pdfName, pdfData2, pdfName2 } = await request.json();
+      const { pdfText, pdfName, pdfText2, pdfName2 } = await request.json();
       console.log(`Processing: ${pdfName}${pdfName2 ? ' + ' + pdfName2 : ''}`);
 
       const systemPrompt = `당신은 공무원 시험 전문 학습 도우미입니다.
-제공된 PDF 파일을 분석하여 다음 JSON 형식으로 변환하세요.
-문제 PDF와 해설 PDF가 별도로 제공될 수 있으니 매칭하여 통합하세요.
+제공된 텍스트에서 문제를 분석하여 다음 JSON 형식으로 변환하세요.
+문제와 해설이 별도로 제공될 수 있으니 매칭하여 통합하세요.
 출력은 반드시 순수한 JSON 형식이어야 하며 다른 텍스트는 포함하지 마십시오.
 
 해설(explanation) 작성 규칙:
@@ -111,10 +111,11 @@ export default {
   ]
 }`;
 
-      const parts = [{ inline_data: { mime_type: "application/pdf", data: pdfData } }];
-      if (pdfData2) parts.push({ inline_data: { mime_type: "application/pdf", data: pdfData2 } });
       const fileNames = pdfName2 ? `${pdfName} (문제) + ${pdfName2} (해설)` : pdfName;
-      parts.push({ text: `이 PDF(${fileNames})에서 모든 문제를 추출해 주세요.` });
+      let combinedText = `파일명: ${fileNames}\n\n=== 내용 ===\n${pdfText}`;
+      if (pdfText2) combinedText += `\n\n=== 해설 ===\n${pdfText2}`;
+
+      const parts = [{ text: combinedText }];
 
       const gemRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
         method: 'POST',
@@ -145,7 +146,7 @@ export default {
       if (githubToken) {
         try {
           const parsed = JSON.parse(resultText);
-          const fileName = `${parsed.year}_${parsed.subject}.json`;
+          const fileName = `${parsed.year}_${parsed.subject.replace(/\s/g,'_')}.json`;
           const filePath = `www/data/${fileName}`;
           await commitToGitHub(githubToken, filePath, resultText, `data: add ${fileName}`);
           await updateIndex(githubToken, fileName);
