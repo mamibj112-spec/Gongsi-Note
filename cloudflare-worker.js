@@ -1,11 +1,78 @@
-const GEMINI_API_KEY = 'YOUR_GEMINI_API_KEY_HERE'; // wrangler secret put GEMINI_API_KEY로 설정 추천
-const GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=' + GEMINI_API_KEY;
-const ALLOWED_ORIGIN = '*'; // 보안상 본인 GitHub Pages URL ('https://유저명.github.io')로 변경 권장
+const GEMINI_API_KEY = 'YOUR_GEMINI_API_KEY_HERE';
+const ALLOWED_ORIGIN = '*';
+const GITHUB_REPO = 'mamibj112-spec/Gongsi-Note';
+const GITHUB_BRANCH = 'main';
+
+async function commitToGitHub(token, path, content, message) {
+  const apiUrl = `https://api.github.com/repos/${GITHUB_REPO}/contents/${path}`;
+  const headers = {
+    'Authorization': `token ${token}`,
+    'Content-Type': 'application/json',
+    'User-Agent': 'gongsi-note-worker'
+  };
+
+  // 기존 파일 SHA 가져오기 (업데이트 시 필요)
+  let sha;
+  const existing = await fetch(apiUrl, { headers });
+  if (existing.ok) {
+    const data = await existing.json();
+    sha = data.sha;
+  }
+
+  const body = {
+    message,
+    content: btoa(unescape(encodeURIComponent(content))),
+    branch: GITHUB_BRANCH
+  };
+  if (sha) body.sha = sha;
+
+  const res = await fetch(apiUrl, {
+    method: 'PUT',
+    headers,
+    body: JSON.stringify(body)
+  });
+
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(`GitHub commit 실패: ${err.message}`);
+  }
+}
+
+async function updateIndex(token, newFile) {
+  const apiUrl = `https://api.github.com/repos/${GITHUB_REPO}/contents/www/data/index.json`;
+  const headers = {
+    'Authorization': `token ${token}`,
+    'Content-Type': 'application/json',
+    'User-Agent': 'gongsi-note-worker'
+  };
+
+  let files = [];
+  let sha;
+  const existing = await fetch(apiUrl, { headers });
+  if (existing.ok) {
+    const data = await existing.json();
+    sha = data.sha;
+    files = JSON.parse(atob(data.content.replace(/\n/g, '')));
+  }
+
+  if (!files.includes(newFile)) {
+    files.push(newFile);
+  }
+
+  const body = {
+    message: `data: update index.json`,
+    content: btoa(unescape(encodeURIComponent(JSON.stringify(files)))),
+    branch: GITHUB_BRANCH
+  };
+  if (sha) body.sha = sha;
+
+  await fetch(apiUrl, { method: 'PUT', headers, body: JSON.stringify(body) });
+}
 
 export default {
   async fetch(request, env) {
-    const origin = request.headers.get('Origin') || '';
     const apiKey = env?.GEMINI_API_KEY || GEMINI_API_KEY;
+    const githubToken = env?.GITHUB_TOKEN || '';
 
     if (request.method === 'OPTIONS') {
       return new Response(null, { headers: {
@@ -44,12 +111,8 @@ export default {
   ]
 }`;
 
-      const parts = [
-        { inline_data: { mime_type: "application/pdf", data: pdfData } }
-      ];
-      if (pdfData2) {
-        parts.push({ inline_data: { mime_type: "application/pdf", data: pdfData2 } });
-      }
+      const parts = [{ inline_data: { mime_type: "application/pdf", data: pdfData } }];
+      if (pdfData2) parts.push({ inline_data: { mime_type: "application/pdf", data: pdfData2 } });
       const fileNames = pdfName2 ? `${pdfName} (문제) + ${pdfName2} (해설)` : pdfName;
       parts.push({ text: `이 PDF(${fileNames})에서 모든 문제를 추출해 주세요.` });
 
@@ -58,51 +121,47 @@ export default {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           system_instruction: { parts: [{ text: systemPrompt }] },
-          contents: [{
-            parts
-          }],
-          generationConfig: {
-            maxOutputTokens: 65536,
-            temperature: 0.1
-          }
+          contents: [{ parts }],
+          generationConfig: { maxOutputTokens: 65536, temperature: 0.1 }
         })
       });
 
       const gemData = await gemRes.json();
-      
-      if (!gemRes.ok) {
-        console.error('Gemini API Error:', gemData);
-        throw new Error(`Gemini API Error: ${gemData.error?.message || 'Unknown error'}`);
-      }
+      if (!gemRes.ok) throw new Error(`Gemini API Error: ${gemData.error?.message || 'Unknown error'}`);
 
       let resultText = gemData.candidates?.[0]?.content?.parts?.[0]?.text;
-      if (!resultText) {
-        console.error('Gemini Empty Result:', gemData);
-        throw new Error('AI가 결과를 반환하지 않았습니다. (내용이 너무 많거나 처리 불가)');
-      }
+      if (!resultText) throw new Error('AI가 결과를 반환하지 않았습니다.');
 
-      // JSON 코드블록 제거
       resultText = resultText.replace(/^```json\s*/i, '').replace(/```\s*$/, '').trim();
 
-      // 잘린 JSON 복구: 마지막 완전한 문제까지만 사용
       try {
         JSON.parse(resultText);
       } catch(e) {
         const lastBrace = resultText.lastIndexOf('},');
-        if (lastBrace !== -1) {
-          resultText = resultText.substring(0, lastBrace + 1) + ']}';
-        }
+        if (lastBrace !== -1) resultText = resultText.substring(0, lastBrace + 1) + ']}';
       }
 
-      console.log('Successfully generated JSON for:', pdfName);
+      // GitHub에 자동 저장
+      if (githubToken) {
+        try {
+          const parsed = JSON.parse(resultText);
+          const fileName = `${parsed.year}_${parsed.subject}.json`;
+          const filePath = `www/data/${fileName}`;
+          await commitToGitHub(githubToken, filePath, resultText, `data: add ${fileName}`);
+          await updateIndex(githubToken, fileName);
+          console.log(`GitHub에 저장 완료: ${filePath}`);
+        } catch(e) {
+          console.error('GitHub 저장 실패 (분석 결과는 정상):', e.message);
+        }
+      }
 
       return new Response(resultText, { headers: {
         'Content-Type': 'application/json',
         'Access-Control-Allow-Origin': '*',
       }});
     } catch (err) {
-      console.error('Worker Catch Error:', err.message);
-      return new Response(JSON.stringify({ error: err.message }), { 
+      console.error('Worker Error:', err.message);
+      return new Response(JSON.stringify({ error: err.message }), {
         status: 500,
         headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
       });

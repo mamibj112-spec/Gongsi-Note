@@ -255,22 +255,24 @@ let reviewQueue = [];
 let reviewIdx = 0;
 
 async function loadBundledData() {
-  const files = [];
-  for (const file of files) {
-    try {
-      const res = await fetch(file);
-      if (!res.ok) continue;
-      const data = await res.json();
-      const key = `${data.year}_${data.subject}`;
-      if (!questionDB[key]) {
+  try {
+    const idxRes = await fetch('data/index.json?t=' + Date.now());
+    if (!idxRes.ok) return;
+    const files = await idxRes.json();
+    for (const file of files) {
+      try {
+        const res = await fetch('data/' + file + '?t=' + Date.now());
+        if (!res.ok) continue;
+        const data = await res.json();
+        const key = `${data.year}_${data.subject}`;
         questionDB[key] = data;
-      }
-    } catch(e) {}
-  }
-  saveToStorage();
-  populateYearSelect();
-  populateWrongFilter();
-  renderLoadedFiles();
+      } catch(e) {}
+    }
+    saveToStorage();
+    populateYearSelect();
+    populateWrongFilter();
+    renderLoadedFiles();
+  } catch(e) {}
 }
 
 function init() {
