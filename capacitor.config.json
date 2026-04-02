@@ -1,0 +1,9 @@
+{
+  "appId": "com.gongsinote.dashboard",
+  "appName": "공시노트",
+  "webDir": "www",
+  "server": {
+    "url": "https://mamibj112-spec.github.io/Gongsi-Note/",
+    "cleartext": false
+  }
+}

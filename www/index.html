@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>공시노트</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Noto Sans KR', sans-serif; background: #f4f6fb; color: #222; max-width: 430px; margin: 0 auto; min-height: 100vh; }
+
+  /* 헤더 */
+  .header { background: #3a5fc8; color: #fff; padding: 16px 20px 12px; position: sticky; top: 0; z-index: 100; }
+  .header h1 { font-size: 20px; font-weight: 700; }
+  .header .date { font-size: 12px; opacity: 0.85; margin-top: 2px; }
+  .streak { display: inline-block; background: #ffd74a; color: #333; font-size: 12px; font-weight: 700; border-radius: 20px; padding: 2px 10px; margin-top: 6px; }
+
+  /* 탭 */
+  .tabs { display: flex; background: #fff; border-bottom: 2px solid #e0e5f0; position: sticky; top: 76px; z-index: 99; }
+  .tab { flex: 1; text-align: center; padding: 12px 4px; font-size: 13px; font-weight: 600; color: #888; cursor: pointer; border-bottom: 3px solid transparent; transition: all 0.2s; }
+  .tab.active { color: #3a5fc8; border-bottom-color: #3a5fc8; }
+
+  /* 섹션 */
+  .section { display: none; padding: 16px; }
+  .section.active { display: block; }
+
+  /* 카드 */
+  .card { background: #fff; border-radius: 14px; padding: 16px; margin-bottom: 14px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+  .card-title { font-size: 14px; font-weight: 700; color: #3a5fc8; margin-bottom: 10px; }
+
+  /* 선택 셀렉트 */
+  select { width: 100%; padding: 10px 12px; border: 1.5px solid #d0d7e8; border-radius: 10px; font-size: 14px; background: #f8f9ff; margin-bottom: 10px; appearance: none; }
+
+  /* 문제 */
+  .question-box { font-size: 15px; line-height: 1.7; margin-bottom: 14px; font-weight: 600; }
+  .options { list-style: none; }
+  .options li { padding: 11px 14px; border: 1.5px solid #e0e5f0; border-radius: 10px; margin-bottom: 8px; font-size: 14px; cursor: pointer; transition: all 0.15s; }
+  .options li:hover { border-color: #3a5fc8; background: #f0f4ff; }
+  .options li.correct { border-color: #27ae60; background: #eaffef; color: #1a7a40; font-weight: 700; }
+  .options li.wrong { border-color: #e74c3c; background: #fff0f0; color: #c0392b; }
+  .options li.disabled { pointer-events: none; }
+
+  .explanation { background: #f0f4ff; border-left: 4px solid #3a5fc8; border-radius: 8px; padding: 12px; font-size: 13px; line-height: 1.6; margin-top: 12px; display: none; }
+
+  .nav-btns { display: flex; gap: 10px; margin-top: 14px; }
+  .btn { flex: 1; padding: 12px; border: none; border-radius: 10px; font-size: 14px; font-weight: 700; cursor: pointer; transition: opacity 0.2s; }
+  .btn-primary { background: #3a5fc8; color: #fff; }
+  .btn-secondary { background: #e8ecf8; color: #3a5fc8; }
+  .btn:active { opacity: 0.8; }
+
+  /* 진행률 */
+  .progress-bar { height: 6px; background: #e0e5f0; border-radius: 3px; margin-bottom: 14px; }
+  .progress-fill { height: 100%; background: #3a5fc8; border-radius: 3px; transition: width 0.3s; }
+  .progress-text { font-size: 12px; color: #888; margin-bottom: 6px; }
+
+  /* 통계 */
+  .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .stat-card { background: #f0f4ff; border-radius: 12px; padding: 14px; text-align: center; }
+  .stat-num { font-size: 28px; font-weight: 800; color: #3a5fc8; }
+  .stat-label { font-size: 12px; color: #666; margin-top: 4px; }
+
+  .subject-stat { background: #fff; border-radius: 12px; padding: 12px 14px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
+  .subject-name { font-size: 14px; font-weight: 600; }
+  .subject-rate { font-size: 14px; font-weight: 700; color: #3a5fc8; }
+  .subject-bar-wrap { height: 5px; background: #e0e5f0; border-radius: 3px; margin-top: 6px; }
+  .subject-bar { height: 5px; background: #3a5fc8; border-radius: 3px; }
+
+  /* 오답노트 */
+  .wrong-card { background: #fff; border-radius: 12px; padding: 14px; margin-bottom: 10px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); border-left: 4px solid #e74c3c; }
+  .wrong-meta { font-size: 11px; color: #999; margin-bottom: 6px; }
+  .wrong-q { font-size: 14px; font-weight: 600; margin-bottom: 8px; line-height: 1.5; }
+  .wrong-answer { font-size: 13px; }
+  .wrong-answer span { font-weight: 700; }
+  .tag-correct { color: #27ae60; }
+  .tag-wrong { color: #e74c3c; }
+
+  .empty-msg { text-align: center; color: #aaa; font-size: 14px; padding: 40px 0; }
+
+  /* 복습 모드 */
+  .review-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+  .review-count { font-size: 13px; color: #888; }
+
+  /* 데이터 업로드 */
+  .upload-area { border: 2px dashed #c0caed; border-radius: 12px; padding: 20px; text-align: center; color: #888; font-size: 13px; cursor: pointer; margin-bottom: 14px; }
+  .upload-area:hover { border-color: #3a5fc8; background: #f0f4ff; }
+  .upload-icon { font-size: 32px; margin-bottom: 8px; }
+  input[type=file] { display: none; }
+  .json-hint { font-size: 12px; color: #aaa; line-height: 1.6; margin-top: 8px; }
+
+  .loaded-files { margin-top: 10px; }
+  .file-chip { display: inline-block; background: #e8ecf8; border-radius: 20px; padding: 4px 12px; font-size: 12px; margin: 3px; color: #3a5fc8; font-weight: 600; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>공시노트 📋</h1>
+  <div class="date" id="headerDate"></div>
+  <div class="streak" id="streakBadge">🔥 0일 연속</div>
+</div>
+
+<div class="tabs">
+  <div class="tab active" onclick="switchTab('quiz')">문제풀기</div>
+  <div class="tab" onclick="switchTab('wrong')">오답노트</div>
+  <div class="tab" onclick="switchTab('stats')">통계</div>
+  <div class="tab" onclick="switchTab('data')">데이터</div>
+</div>
+
+<!-- 문제풀기 탭 -->
+<div class="section active" id="tab-quiz">
+  <div class="card">
+    <div class="card-title">시험 선택</div>
+    <select id="selYear" onchange="filterSubjects()">
+      <option value="">-- 년도 선택 --</option>
+    </select>
+    <select id="selSubject" onchange="loadQuiz()">
+      <option value="">-- 과목 선택 --</option>
+    </select>
+  </div>
+
+  <div id="quizArea" style="display:none;">
+    <div class="progress-text" id="progressText"></div>
+    <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+    <div class="card">
+      <div class="question-box" id="questionBox"></div>
+      <ul class="options" id="optionsList"></ul>
+      <div class="explanation" id="explanationBox"></div>
+    </div>
+    <div class="nav-btns">
+      <button class="btn btn-secondary" onclick="prevQuestion()">이전</button>
+      <button class="btn btn-primary" id="nextBtn" onclick="nextQuestion()">다음</button>
+    </div>
+  </div>
+
+  <div id="quizResult" style="display:none;" class="card">
+    <div class="card-title">🎉 결과</div>
+    <div id="resultContent"></div>
+    <button class="btn btn-primary" style="margin-top:14px; width:100%;" onclick="restartQuiz()">다시 풀기</button>
+    <button class="btn btn-secondary" style="margin-top:8px; width:100%;" onclick="reviewWrong()">오답만 복습</button>
+  </div>
+</div>
+
+<!-- 오답노트 탭 -->
+<div class="section" id="tab-wrong">
+  <div class="card">
+    <div class="card-title">오답노트</div>
+    <select id="wrongFilter" onchange="renderWrongNote()">
+      <option value="">전체</option>
+    </select>
+  </div>
+
+  <div id="wrongReviewArea" style="display:none;">
+    <div class="review-header">
+      <div class="card-title" style="margin:0;">오답 복습 중</div>
+      <div class="review-count" id="reviewCount"></div>
+    </div>
+    <div class="card">
+      <div class="question-box" id="reviewQuestionBox"></div>
+      <ul class="options" id="reviewOptionsList"></ul>
+      <div class="explanation" id="reviewExplanationBox"></div>
+    </div>
+    <div class="nav-btns">
+      <button class="btn btn-secondary" onclick="exitReview()">목록으로</button>
+      <button class="btn btn-primary" id="reviewNextBtn" onclick="reviewNext()">다음</button>
+    </div>
+  </div>
+
+  <div id="wrongList"></div>
+</div>
+
+<!-- 통계 탭 -->
+<div class="section" id="tab-stats">
+  <div class="card">
+    <div class="card-title">전체 통계</div>
+    <div class="stat-grid" id="totalStats"></div>
+  </div>
+  <div class="card">
+    <div class="card-title">과목별 정답률</div>
+    <div id="subjectStats"></div>
+  </div>
+</div>
+
+<!-- 데이터 탭 -->
+<div class="section" id="tab-data">
+  <div class="card">
+    <div class="card-title">문제 데이터 불러오기</div>
+    <label class="upload-area" for="jsonFileInput">
+      <div class="upload-icon">📂</div>
+      <div>JSON 파일을 탭하여 불러오기</div>
+      <div class="json-hint">
+        여러 파일을 한 번에 선택할 수 있습니다.<br>
+        파일 형식: 아래 예시 참고
+      </div>
+    </label>
+    <input type="file" id="jsonFileInput" accept=".json" multiple onchange="loadJSONFiles(event)">
+    <div class="loaded-files" id="loadedFiles"></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">JSON 형식 예시</div>
+    <pre style="font-size:11px; background:#f8f9ff; border-radius:8px; padding:12px; overflow-x:auto; line-height:1.6; color:#444;">{
+  "year": "2024",
+  "subject": "국어",
+  "questions": [
+    {
+      "id": 1,
+      "question": "문제 내용을 입력하세요.",
+      "options": [
+        "① 보기1",
+        "② 보기2",
+        "③ 보기3",
+        "④ 보기4"
+      ],
+      "answer": 1,
+      "explanation": "해설을 입력하세요."
+    }
+  ]
+}</pre>
+    <div class="json-hint" style="margin-top:8px;">answer는 정답 번호 (1부터 시작)</div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">데이터 초기화</div>
+    <button class="btn btn-secondary" style="width:100%;" onclick="clearAllData()">모든 데이터 삭제</button>
+  </div>
+</div>
+
+<script>
+// ===================== 데이터 저장소 =====================
+let questionDB = {}; // { "2024_국어": { year, subject, questions } }
+let wrongNotes = {}; // { "2024_국어_1": { year, subject, qIndex, question, options, answer, explanation, myAnswer } }
+let stats = {};      // { "2024_국어": { total, correct } }
+
+function saveToStorage() {
+  localStorage.setItem('gongsi_db', JSON.stringify(questionDB));
+  localStorage.setItem('gongsi_wrong', JSON.stringify(wrongNotes));
+  localStorage.setItem('gongsi_stats', JSON.stringify(stats));
+}
+
+function loadFromStorage() {
+  try { questionDB = JSON.parse(localStorage.getItem('gongsi_db') || '{}'); } catch(e) { questionDB = {}; }
+  try { wrongNotes = JSON.parse(localStorage.getItem('gongsi_wrong') || '{}'); } catch(e) { wrongNotes = {}; }
+  try { stats = JSON.parse(localStorage.getItem('gongsi_stats') || '{}'); } catch(e) { stats = {}; }
+}
+
+// ===================== 초기화 =====================
+let currentQuestions = [];
+let currentIdx = 0;
+let currentKey = '';
+let answered = [];
+let reviewQueue = [];
+let reviewIdx = 0;
+
+function init() {
+  loadFromStorage();
+  updateStreak();
+  document.getElementById('headerDate').textContent = new Date().toLocaleDateString('ko-KR', { year:'numeric', month:'long', day:'numeric', weekday:'short' });
+  populateYearSelect();
+  populateWrongFilter();
+  renderStats();
+}
+
+// ===================== 출석 스트릭 =====================
+function updateStreak() {
+  const today = new Date().toDateString();
+  const last = localStorage.getItem('gongsi_last_date');
+  let streak = parseInt(localStorage.getItem('gongsi_streak') || '0');
+  if (last === today) {
+    // 오늘 이미 방문
+  } else if (last === new Date(Date.now() - 86400000).toDateString()) {
+    streak++;
+    localStorage.setItem('gongsi_streak', streak);
+    localStorage.setItem('gongsi_last_date', today);
+  } else {
+    streak = 1;
+    localStorage.setItem('gongsi_streak', streak);
+    localStorage.setItem('gongsi_last_date', today);
+  }
+  document.getElementById('streakBadge').textContent = `🔥 ${streak}일 연속`;
+}
+
+// ===================== JSON 파일 로드 =====================
+function loadJSONFiles(event) {
+  const files = Array.from(event.target.files);
+  let loaded = 0;
+  files.forEach(file => {
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      try {
+        const data = JSON.parse(e.target.result);
+        if (!data.year || !data.subject || !Array.isArray(data.questions)) {
+          alert(`${file.name}: 올바른 형식이 아닙니다.`);
+          return;
+        }
+        const key = `${data.year}_${data.subject}`;
+        questionDB[key] = data;
+        saveToStorage();
+        loaded++;
+        if (loaded === files.length) {
+          populateYearSelect();
+          populateWrongFilter();
+          renderLoadedFiles();
+          alert(`${loaded}개 파일 로드 완료!`);
+        }
+      } catch(err) {
+        alert(`${file.name}: JSON 파싱 오류`);
+      }
+    };
+    reader.readAsText(file, 'UTF-8');
+  });
+}
+
+function renderLoadedFiles() {
+  const div = document.getElementById('loadedFiles');
+  const keys = Object.keys(questionDB);
+  if (keys.length === 0) { div.innerHTML = ''; return; }
+  div.innerHTML = keys.map(k => `<span class="file-chip">${questionDB[k].year} ${questionDB[k].subject} (${questionDB[k].questions.length}문)</span>`).join('');
+}
+
+function clearAllData() {
+  if (!confirm('모든 문제 데이터, 오답, 통계를 삭제할까요?')) return;
+  localStorage.clear();
+  questionDB = {}; wrongNotes = {}; stats = {};
+  renderLoadedFiles();
+  populateYearSelect();
+  renderStats();
+  renderWrongNote();
+  alert('초기화 완료!');
+}
+
+// ===================== 년도/과목 셀렉트 =====================
+function getYears() {
+  return [...new Set(Object.values(questionDB).map(d => d.year))].sort().reverse();
+}
+
+function populateYearSelect() {
+  const sel = document.getElementById('selYear');
+  const years = getYears();
+  sel.innerHTML = '<option value="">-- 년도 선택 --</option>' + years.map(y => `<option value="${y}">${y}년</option>`).join('');
+  renderLoadedFiles();
+}
+
+function filterSubjects() {
+  const year = document.getElementById('selYear').value;
+  const sel = document.getElementById('selSubject');
+  const subjects = Object.values(questionDB).filter(d => d.year === year).map(d => d.subject);
+  sel.innerHTML = '<option value="">-- 과목 선택 --</option>' + subjects.map(s => `<option value="${s}">${s}</option>`).join('');
+  document.getElementById('quizArea').style.display = 'none';
+  document.getElementById('quizResult').style.display = 'none';
+}
+
+function loadQuiz() {
+  const year = document.getElementById('selYear').value;
+  const subject = document.getElementById('selSubject').value;
+  if (!year || !subject) return;
+  currentKey = `${year}_${subject}`;
+  const data = questionDB[currentKey];
+  if (!data) return;
+  currentQuestions = data.questions;
+  currentIdx = 0;
+  answered = new Array(currentQuestions.length).fill(null);
+  document.getElementById('quizArea').style.display = 'block';
+  document.getElementById('quizResult').style.display = 'none';
+  renderQuestion();
+}
+
+// ===================== 문제 렌더링 =====================
+function renderQuestion() {
+  const q = currentQuestions[currentIdx];
+  const total = currentQuestions.length;
+  document.getElementById('progressText').textContent = `${currentIdx + 1} / ${total} 문제`;
+  document.getElementById('progressFill').style.width = `${((currentIdx + 1) / total) * 100}%`;
+  document.getElementById('questionBox').textContent = `Q${currentIdx + 1}. ${q.question}`;
+  document.getElementById('nextBtn').textContent = currentIdx === total - 1 ? '결과 보기' : '다음';
+
+  const expBox = document.getElementById('explanationBox');
+  expBox.style.display = 'none';
+  expBox.textContent = '';
+
+  const ul = document.getElementById('optionsList');
+  ul.innerHTML = '';
+  q.options.forEach((opt, i) => {
+    const li = document.createElement('li');
+    li.textContent = opt;
+    li.onclick = () => selectAnswer(i + 1, li, q);
+    if (answered[currentIdx] !== null) {
+      li.classList.add('disabled');
+      if (i + 1 === q.answer) li.classList.add('correct');
+      if (i + 1 === answered[currentIdx] && answered[currentIdx] !== q.answer) li.classList.add('wrong');
+      expBox.textContent = q.explanation || '';
+      expBox.style.display = q.explanation ? 'block' : 'none';
+    }
+    ul.appendChild(li);
+  });
+}
+
+function selectAnswer(selected, li, q) {
+  if (answered[currentIdx] !== null) return;
+  answered[currentIdx] = selected;
+  const ul = document.getElementById('optionsList');
+  Array.from(ul.children).forEach((el, i) => {
+    el.classList.add('disabled');
+    if (i + 1 === q.answer) el.classList.add('correct');
+    if (i + 1 === selected && selected !== q.answer) el.classList.add('wrong');
+  });
+  const expBox = document.getElementById('explanationBox');
+  if (q.explanation) { expBox.textContent = q.explanation; expBox.style.display = 'block'; }
+
+  // 오답 저장
+  if (selected !== q.answer) {
+    const wKey = `${currentKey}_${currentIdx}`;
+    wrongNotes[wKey] = {
+      year: questionDB[currentKey].year,
+      subject: questionDB[currentKey].subject,
+      qIndex: currentIdx,
+      question: q.question,
+      options: q.options,
+      answer: q.answer,
+      explanation: q.explanation || '',
+      myAnswer: selected,
+      date: new Date().toLocaleDateString('ko-KR')
+    };
+  } else {
+    // 맞혔으면 오답노트에서 제거
+    delete wrongNotes[`${currentKey}_${currentIdx}`];
+  }
+  saveToStorage();
+}
+
+function prevQuestion() {
+  if (currentIdx > 0) { currentIdx--; renderQuestion(); }
+}
+
+function nextQuestion() {
+  if (answered[currentIdx] === null) { alert('문제를 먼저 풀어주세요!'); return; }
+  if (currentIdx < currentQuestions.length - 1) {
+    currentIdx++;
+    renderQuestion();
+  } else {
+    showResult();
+  }
+}
+
+function showResult() {
+  const correct = answered.filter((a, i) => a === currentQuestions[i].answer).length;
+  const total = currentQuestions.length;
+  const wrong = total - correct;
+  const rate = Math.round((correct / total) * 100);
+
+  // 통계 저장
+  if (!stats[currentKey]) stats[currentKey] = { total: 0, correct: 0 };
+  stats[currentKey].total += total;
+  stats[currentKey].correct += correct;
+  saveToStorage();
+
+  document.getElementById('quizArea').style.display = 'none';
+  document.getElementById('quizResult').style.display = 'block';
+  document.getElementById('resultContent').innerHTML = `
+    <div class="stat-grid" style="margin-bottom:14px;">
+      <div class="stat-card"><div class="stat-num">${rate}%</div><div class="stat-label">정답률</div></div>
+      <div class="stat-card"><div class="stat-num">${correct}/${total}</div><div class="stat-label">맞은 문제</div></div>
+    </div>
+    <div style="font-size:14px; color:#555;">오답: <b style="color:#e74c3c">${wrong}문제</b>가 오답노트에 저장되었습니다.</div>
+  `;
+  renderStats();
+  populateWrongFilter();
+}
+
+function restartQuiz() {
+  loadQuiz();
+}
+
+function reviewWrong() {
+  switchTab('wrong');
+  startReview(currentKey);
+}
+
+// ===================== 오답노트 =====================
+function populateWrongFilter() {
+  const sel = document.getElementById('wrongFilter');
+  const keys = [...new Set(Object.values(wrongNotes).map(w => `${w.year}_${w.subject}`))];
+  sel.innerHTML = '<option value="">전체</option>' + keys.map(k => {
+    const [year, subject] = k.split('_');
+    return `<option value="${k}">${year}년 ${subject}</option>`;
+  }).join('');
+  renderWrongNote();
+}
+
+function renderWrongNote() {
+  if (document.getElementById('wrongReviewArea').style.display === 'block') return;
+  const filter = document.getElementById('wrongFilter').value;
+  const list = document.getElementById('wrongList');
+  const items = Object.values(wrongNotes).filter(w => !filter || `${w.year}_${w.subject}` === filter);
+  if (items.length === 0) {
+    list.innerHTML = '<div class="empty-msg">오답이 없습니다 🎉</div>';
+    return;
+  }
+  list.innerHTML = items.map((w, i) => `
+    <div class="wrong-card">
+      <div class="wrong-meta">${w.year}년 ${w.subject} | ${w.date}</div>
+      <div class="wrong-q">Q. ${w.question}</div>
+      <div class="wrong-answer">
+        내 답: <span class="tag-wrong">${w.options[w.myAnswer - 1] || w.myAnswer + '번'}</span><br>
+        정답: <span class="tag-correct">${w.options[w.answer - 1] || w.answer + '번'}</span>
+      </div>
+      ${w.explanation ? `<div class="explanation" style="display:block; margin-top:8px;">${w.explanation}</div>` : ''}
+    </div>
+  `).join('');
+}
+
+function startReview(key) {
+  const filter = key || document.getElementById('wrongFilter').value;
+  reviewQueue = Object.entries(wrongNotes)
+    .filter(([k, w]) => !filter || `${w.year}_${w.subject}` === filter)
+    .map(([k, w]) => ({ key: k, ...w }));
+  if (reviewQueue.length === 0) { alert('복습할 오답이 없습니다!'); return; }
+  reviewIdx = 0;
+  document.getElementById('wrongList').style.display = 'none';
+  document.getElementById('wrongReviewArea').style.display = 'block';
+  renderReview();
+}
+
+function renderReview() {
+  const w = reviewQueue[reviewIdx];
+  document.getElementById('reviewCount').textContent = `${reviewIdx + 1} / ${reviewQueue.length}`;
+  document.getElementById('reviewQuestionBox').textContent = `Q. ${w.question}`;
+  document.getElementById('reviewExplanationBox').style.display = 'none';
+  document.getElementById('reviewNextBtn').textContent = reviewIdx === reviewQueue.length - 1 ? '완료' : '다음';
+
+  const ul = document.getElementById('reviewOptionsList');
+  ul.innerHTML = '';
+  w.options.forEach((opt, i) => {
+    const li = document.createElement('li');
+    li.textContent = opt;
+    li.onclick = () => selectReviewAnswer(i + 1, li, w);
+    ul.appendChild(li);
+  });
+}
+
+function selectReviewAnswer(selected, li, w) {
+  const ul = document.getElementById('reviewOptionsList');
+  Array.from(ul.children).forEach((el, i) => {
+    el.classList.add('disabled');
+    if (i + 1 === w.answer) el.classList.add('correct');
+    if (i + 1 === selected && selected !== w.answer) el.classList.add('wrong');
+  });
+  if (selected === w.answer) {
+    // 맞히면 오답노트 삭제
+    delete wrongNotes[w.key];
+    saveToStorage();
+  }
+  const expBox = document.getElementById('reviewExplanationBox');
+  if (w.explanation) { expBox.textContent = w.explanation; expBox.style.display = 'block'; }
+}
+
+function reviewNext() {
+  if (reviewIdx < reviewQueue.length - 1) {
+    reviewIdx++;
+    renderReview();
+  } else {
+    exitReview();
+    alert('복습 완료!');
+  }
+}
+
+function exitReview() {
+  document.getElementById('wrongReviewArea').style.display = 'none';
+  document.getElementById('wrongList').style.display = 'block';
+  populateWrongFilter();
+}
+
+// ===================== 통계 =====================
+function renderStats() {
+  const keys = Object.keys(stats);
+  let totalQ = 0, totalC = 0;
+  keys.forEach(k => { totalQ += stats[k].total; totalC += stats[k].correct; });
+  const totalRate = totalQ > 0 ? Math.round((totalC / totalQ) * 100) : 0;
+  const wrongCount = Object.keys(wrongNotes).length;
+
+  document.getElementById('totalStats').innerHTML = `
+    <div class="stat-card"><div class="stat-num">${totalQ}</div><div class="stat-label">푼 문제 수</div></div>
+    <div class="stat-card"><div class="stat-num">${totalRate}%</div><div class="stat-label">전체 정답률</div></div>
+    <div class="stat-card"><div class="stat-num">${totalC}</div><div class="stat-label">맞은 문제</div></div>
+    <div class="stat-card"><div class="stat-num">${wrongCount}</div><div class="stat-label">오답 누적</div></div>
+  `;
+
+  const subDiv = document.getElementById('subjectStats');
+  if (keys.length === 0) { subDiv.innerHTML = '<div class="empty-msg">아직 풀이 기록이 없습니다</div>'; return; }
+  subDiv.innerHTML = keys.map(k => {
+    const s = stats[k];
+    const rate = s.total > 0 ? Math.round((s.correct / s.total) * 100) : 0;
+    const [year, subject] = k.split('_');
+    return `
+      <div class="subject-stat">
+        <div style="flex:1;">
+          <div class="subject-name">${year}년 ${subject}</div>
+          <div class="subject-bar-wrap"><div class="subject-bar" style="width:${rate}%"></div></div>
+        </div>
+        <div class="subject-rate" style="margin-left:12px;">${rate}%</div>
+      </div>
+    `;
+  }).join('');
+}
+
+// ===================== 탭 전환 =====================
+function switchTab(tab) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById(`tab-${tab}`).classList.add('active');
+  const idx = ['quiz','wrong','stats','data'].indexOf(tab);
+  document.querySelectorAll('.tab')[idx].classList.add('active');
+  if (tab === 'wrong') renderWrongNote();
+  if (tab === 'stats') renderStats();
+}
+
+init();
+</script>
+</body>
+</html>
