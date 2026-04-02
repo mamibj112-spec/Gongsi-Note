@@ -712,6 +712,8 @@ function switchTab(tab) {
 }
 
 // ===================== PDF 드래그 앤 드롭 =====================
+document.addEventListener('dragover', e => e.preventDefault());
+document.addEventListener('drop', e => e.preventDefault());
 (function() {
   const area = document.getElementById('pdfDropArea');
   ['dragenter','dragover'].forEach(ev => area.addEventListener(ev, e => {
