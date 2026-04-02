@@ -196,20 +196,7 @@
 <!-- 데이터 탭 -->
 <div class="section" id="tab-data">
   <div class="card">
-    <div class="card-title">문제 데이터 불러오기</div>
-    <label class="upload-area" for="jsonFileInput">
-      <div class="upload-icon">📂</div>
-      <div>JSON 파일을 탭하여 불러오기</div>
-      <div class="json-hint">
-        여러 파일을 한 번에 선택할 수 있습니다.<br>
-        파일 형식: 아래 예시 참고
-      </div>
-    </label>
-    <input type="file" id="jsonFileInput" accept=".json" multiple onchange="loadJSONFiles(event)">
     <div class="loaded-files" id="loadedFiles"></div>
-    
-    <hr style="margin: 20px 0; border: 0; border-top: 1px solid #eee;">
-    
     <div class="card-title">AI PDF 문제 생성 ✨</div>
     <div id="pdfDropArea" class="upload-area" style="border-color: #f1c40f; background: #fffdf0;" onclick="document.getElementById('pdfFileInput').click()">
       <div class="upload-icon">📄</div>
@@ -221,29 +208,6 @@
       <div style="font-size:12px; color:#3a5fc8; margin-bottom:5px;">AI가 분석 중입니다... (약 10~20초 소요)</div>
       <progress style="width:100%;"></progress>
     </div>
-  </div>
-
-  <div class="card">
-    <div class="card-title">JSON 형식 예시</div>
-    <pre style="font-size:11px; background:#f8f9ff; border-radius:8px; padding:12px; overflow-x:auto; line-height:1.6; color:#444;">{
-  "year": "2024",
-  "subject": "국어",
-  "questions": [
-    {
-      "id": 1,
-      "question": "문제 내용을 입력하세요.",
-      "options": [
-        "① 보기1",
-        "② 보기2",
-        "③ 보기3",
-        "④ 보기4"
-      ],
-      "answer": 1,
-      "explanation": "해설을 입력하세요."
-    }
-  ]
-}</pre>
-    <div class="json-hint" style="margin-top:8px;">answer는 정답 번호 (1부터 시작)</div>
   </div>
 
   <div class="card">
